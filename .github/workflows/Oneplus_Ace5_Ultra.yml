@@ -1,4 +1,4 @@
-name: Oneplus_Ace5_Ultra_GKI
+name: Oneplus_Ace5_Ultra_SukiSU
 on:
   workflow_dispatch:
     inputs:
