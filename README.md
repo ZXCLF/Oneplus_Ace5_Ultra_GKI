@@ -17,7 +17,7 @@
 ### 手动触发构建
 
 1. 进入 GitHub Actions 页面
-2. 选择 "Oneplus_Ace5_Ultra" 工作流
+2. 选择工作流
 3. 点击 "Run workflow" 按钮
 4. 根据需要配置以下选项：
 
