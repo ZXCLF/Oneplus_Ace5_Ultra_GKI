@@ -25,6 +25,11 @@ on:
        required: true
        default: true
        type: boolean
+      enable_bbg:
+       description: "是否启用Baseband-guard防格机"
+       required: true
+       default: true
+       type: boolean
       
 jobs:
   build:
@@ -36,7 +41,7 @@ jobs:
       CCACHE_DIR: /home/runner/.ccache  
       CCACHE_MAXSIZE: 8G
     steps:
-      - name: Maximize build space
+      - name: "🚀 最大化构建空间"
         uses: easimon/maximize-build-space@master
         with:
           root-reserve-mb: 8192
@@ -46,18 +51,18 @@ jobs:
           remove-haskell: 'true'
           remove-codeql: 'true'
           
-      - name: Configure Git
+      - name: "🔐 配置Git账户"
         run: |
           git config --global user.name "ZXCLF"
           git config --global user.email "ZXCLFN@Outlook.com"
 
-      - name: Install dependencies
+      - name: "📦 安装构建依赖"
         run: |
           sudo apt update && sudo apt upgrade -y
           sudo apt install -y python3 git curl
           sudo apt install -y python3 git curl ccache
 
-      - name: Restore ccache
+      - name: "⚙️ 初始化ccache"
         uses: actions/cache@v3
         with:
           path: /home/runner/.ccache
@@ -65,13 +70,13 @@ jobs:
           restore-keys: |
             ccache-${{ runner.os }}-
 
-      - name: Install repo tool
+      - name: "📥 安装Repo工具"
         run: |
           curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
           chmod a+x ~/repo
           sudo mv ~/repo /usr/local/bin/repo
 
-      - name: Initialize repo and sync
+      - name: "⬇️ 初始化并同步仓库"
         run: |
           mkdir kernel_workspace && cd kernel_workspace
           repo init -u https://github.com/ZXCLF/Oneplus_Ace5_Ultra_GKI.git -b main -m Oneplus_Ace5_Ultra.xml --depth=1
@@ -79,7 +84,15 @@ jobs:
           rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
           rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
          
-      - name: Set up SukiSU
+      - name: "⚡ 配置 Baseband-guard"
+        if: ${{ inputs.enable_bbg }}
+        run: |
+          set -e
+          cd kernel_workspace/kernel_platform/common
+          curl -sSL https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh -o setup.sh
+          bash setup.sh
+         
+      - name: "⚡ 配置SukiSU Ultra"
         run: |
           cd kernel_workspace/kernel_platform
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
@@ -95,7 +108,7 @@ jobs:
           
           echo "✅ SukiSU Ultra配置完成"
         
-      - name: Set up susfs
+      - name: "⚡ 安装susfs"
         run: |
           cd kernel_workspace
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android15-6.6
@@ -118,7 +131,7 @@ jobs:
           patch -p1 -F 3 < syscall_hooks.patch
           echo "完成"
       
-      - name: Apply HMBird GKI patch
+      - name: "📦 应用 HMBird GKI 补丁"
         run: |
           cd kernel_workspace/kernel_platform/common/drivers
           cat << 'EOF' > hmbird_patch.c
@@ -199,14 +212,14 @@ jobs:
           git add -A
           # git commit -m "Add HMBird GKI patch" || true
  
-      - name: Apply lz4kd Patches
+      - name: "📦 应用 lz4kd 补丁"
         if: ${{inputs.enable_feature_y }}
         run: |
           cd kernel_workspace/kernel_platform/common
           cp ../../SukiSU_patch/other/zram/zram_patch/6.6/lz4kd.patch ./
           patch -p1 -F 3 < lz4kd.patch || true
            
-      - name: Add SUSFS Configuration Settings
+      - name: "📦 添加susfs配置设置"
         run: |
           cd kernel_workspace/kernel_platform
           echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -232,6 +245,13 @@ jobs:
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
           
+          # Add Baseband-guard configuration if enabled
+          if [ "${{ inputs.enable_bbg }}" = "true" ]; then
+            echo "⚡ 启用BBG防格机..."
+            echo 'CONFIG_BBG=y' >> ./common/arch/arm64/configs/gki_defconfig
+            echo 'CONFIG_LSM="landlock,lockdown,yama,loadpin,safesetid,selinux,smack,tomoyo,apparmor,bpf,baseband_guard"' >> ./common/arch/arm64/configs/gki_defconfig
+          fi
+          
           echo "CONFIG_CRYPTO_LZ4HC=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_CRYPTO_LZ4K=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_CRYPTO_LZ4KD=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -253,7 +273,7 @@ jobs:
           cd common
           git add -A && git commit -a -m "BUILD Kernel"
       
-      - name: Add KPM Configuration Settings
+      - name: "📦 添加KPM配置设置"
         if: ${{inputs.enable_feature_x }}
         run: |
           cd kernel_workspace/kernel_platform
@@ -264,13 +284,13 @@ jobs:
           cd common
           git add -A && git commit -a -m "BUILD Kernel"
           
-      - name: Add make name
+      - name: "📝 应用构建名称"
         run: |
           cd kernel_workspace/kernel_platform
           sed -i 's/${scm_version}//' ./common/scripts/setlocalversion
           sudo sed -i 's/-4k/${{ github.event.inputs.KERNEL_SUFFIX }}/g' ./common/arch/arm64/configs/gki_defconfig
 
-      - name: Add sched_ext
+      - name: "📦 添加风驰驱动"
         if: ${{inputs.enable_feature_z }}
         run: |
           cd kernel_workspace/kernel_platform/
@@ -279,7 +299,7 @@ jobs:
           rm -rf ./sched_ext/.git
           cd common/kernel/sched
 
-      - name: Build Kernel
+      - name: "🔨 编译内核"
         run: |
           export KBUILD_BUILD_TIMESTAMP="${{ github.event.inputs.KERNEL_TIME }}"
           export PATH="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts/clang/host/linux-x86/clang-r510928/bin:$PATH"
@@ -288,7 +308,7 @@ jobs:
           cd kernel_workspace/kernel_platform/common
           make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=clang RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole LD=ld.lld  HOSTLD=ld.lld O=out KCFLAGS+=-O2 gki_defconfig all
           
-      - name: Apply Linux Patch
+      - name: "🔨 应用Linux补丁"
         run: |
           cd kernel_workspace/kernel_platform/common/out/arch/arm64/boot
           curl -LO https://github.com/SukiSU-Ultra/SukiSU_KernelPatch_patch/releases/download/0.12.0/patch_linux
@@ -297,14 +317,14 @@ jobs:
           rm -f Image
           mv oImage Image
          
-      - name: Make AnyKernel3
+      - name: "📦 打包内核"
         run: |
           git clone https://github.com/ZXCLF/AnyKernel3.git --depth=1   
           rm -rf ./AnyKernel3/.git
           rm -rf ./AnyKernel3/push.sh
           cp kernel_workspace/kernel_platform/common/out/arch/arm64/boot/Image ./AnyKernel3/
 
-      - name: Upload AnyKernel3
+      - name: "📤 上传 AnyKernel3"
         uses: actions/upload-artifact@v4
         with:
           name: SukiSU_${{ env.KSUVER }}_oneplus_ace5_Ultra

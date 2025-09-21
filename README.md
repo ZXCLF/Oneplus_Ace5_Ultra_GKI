@@ -1,5 +1,7 @@
 # OnePlus Ace5 Ultra 内核构建项目
 
+
+
 这是一个基于 GitHub Actions 的自动化内核构建工作流，专为 OnePlus Ace5 Ultra 设备定制。集成了 SukiSU、SUSFS 文件系统、lz4kd 压缩算法和多种性能优化功能。
 
 ## ✨ 功能特性
@@ -11,6 +13,7 @@
 - **风驰调度器**: 可选启用 sched_ext 风驰驱动
 - **BBR TCP 拥塞控制**: 默认启用 BBR 网络加速算法
 - **HMBird GKI 补丁**: 强制将 HMBIRD_OGKI 转换为 HMBIRD_GKI
+- **Baseband-guard防格机**:从内核层面阻止对关键分区/设备节点的非法写入，降低基带、引导链等关键组件被恶意/误操作篡改的风险
 
 ## 🛠️ 使用方法
 
