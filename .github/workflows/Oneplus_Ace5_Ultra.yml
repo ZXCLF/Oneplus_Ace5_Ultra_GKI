@@ -26,9 +26,9 @@ on:
        default: true
        type: boolean
       enable_bbg:
-       description: "是否启用Baseband-guard防格机"
+       description: "Baseband-guard防格机"
        required: true
-       default: true
+       default: false
        type: boolean
       
 jobs:
