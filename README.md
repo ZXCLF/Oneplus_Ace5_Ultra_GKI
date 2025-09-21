@@ -30,6 +30,7 @@
    - **启用KPM**: 是否启用内核模块功能（默认关闭）
    - **启用lz4kd**: 是否启用 lz4kd 压缩算法（默认开启）
    - **添加风驰驱动**: 是否启用 sched_ext 风驰驱动（默认开启）
+   - **Baseband-guard防格机**是否启用Baseband-guard防格机（默认关闭）
 
 6. 点击 "Run workflow" 开始构建
 
