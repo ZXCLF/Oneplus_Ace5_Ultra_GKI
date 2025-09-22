@@ -1,6 +1,7 @@
 # OnePlus Ace5 Ultra 内核构建项目
 
 
+本项目正在施工中，且尚未完工，具体情况可切换至Technical Preview分支查看
 
 这是一个基于 GitHub Actions 的自动化内核构建工作流，专为 OnePlus Ace5 Ultra 设备定制。集成了 SukiSU、SUSFS 文件系统、lz4kd 压缩算法和多种性能优化功能。
 
