@@ -386,7 +386,6 @@ jobs:
         run: |
           git clone https://github.com/ZXCLF/AnyKernel3.git --depth=1   
           rm -rf ./AnyKernel3/.git
-          rm -rf ./AnyKernel3/push.sh
           cp kernel_workspace/kernel_platform/common/out/arch/arm64/boot/Image ./AnyKernel3/
 
       - name: "📤 上传 AnyKernel3"
