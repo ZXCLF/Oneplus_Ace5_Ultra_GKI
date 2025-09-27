@@ -393,5 +393,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: |
-            ${{ inputs.KSU_TYPE == 'KernelSU Next' && 'KernelSU_Next' || 'SukiSU' }}_${{ env.KSUVER }}_oneplus_ace5_Ultra
+            ${{ inputs.KSU_TYPE == 'KernelSU Next' && 'KernelSU_Next' || 'SukiSU' }}_oneplus_ace5_Ultra
           path: ./AnyKernel3/*
