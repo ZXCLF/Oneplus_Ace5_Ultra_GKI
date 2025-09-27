@@ -1,4 +1,4 @@
-name: Oneplus_Ace5_Ultra_GKI_Unified
+name: Oneplus_Ace5_Ultra_GKI
 
 on:
   workflow_dispatch:
