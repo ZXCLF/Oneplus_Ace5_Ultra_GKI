@@ -10,11 +10,7 @@ on:
        description: "内核构建日期更改(默认为原厂)"
        required: true
        default: 'Tue Jul  1 19:48:18 UTC 2025'
-      enable_feature_x:
-       description: "是否启用KPM"
-       required: true
-       default: false
-       type: boolean
+
       enable_feature_y:
        description: "是否启用lz4kd"
        required: true
@@ -51,15 +47,15 @@ jobs:
           remove-haskell: 'true'
           remove-codeql: 'true'
           
-      - name: "🔐 配置Git账户"
+      - name: "🔐 配置Git"
         run: |
-          git config --global user.name "ZXCLF"
-          git config --global user.email "ZXCLFN@Outlook.com"
+          git config --global user.name "GKI_Build"
+          git config --global user.email "NO@Thanks.com"
 
       - name: "📦 安装构建依赖"
         run: |
           sudo apt update && sudo apt upgrade -y
-          sudo apt install -y python3 git curl
+          sudo apt install -y python3 git curl libelf-dev build-essential flex bison libssl-dev libncurses-dev liblz4-tool zlib1g-dev libxml2-utils rsync unzip
           sudo apt install -y python3 git curl ccache
 
       - name: "⚙️ 初始化ccache"
@@ -92,44 +88,47 @@ jobs:
           curl -sSL https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh -o setup.sh
           bash setup.sh
          
-      - name: "⚡ 配置SukiSU Ultra"
+      - name: "⚡ 配置 KernelSU Next"
         run: |
           cd kernel_workspace/kernel_platform
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
-          cd ./KernelSU
-
-          
-          # 验证Makefile存在
-          if [ ! -f "kernel/Makefile" ]; then
-            echo "❌ 错误：缺少kernel/Makefile"
-            ls -la
-            exit 1
-          fi
-          
-          echo "✅ SukiSU Ultra配置完成"
+          curl -LSs "https://raw.githubusercontent.com/pershoot/KernelSU-Next/next-susfs/kernel/setup.sh" | bash -s next-susfs
+          cd KernelSU-Next
+          KSU_VERSION=$(expr $(curl -sI "https://api.github.com/repos/KernelSU-Next/KernelSU-Next/commits?sha=next&per_page=1" | grep -i "link:" | sed -n 's/.*page=\([0-9]*\)>; rel="last".*/\1/p') "+" 10200)
+          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+          sed -i "s/DKSU_VERSION=11998/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+          echo "✅ KernelSU Next 配置完成"
         
-      - name: "⚡ 安装susfs"
+      - name: "⚡ 配置SUSFS"
         run: |
           cd kernel_workspace
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android15-6.6
-          git clone https://github.com/SukiSU-Ultra/SukiSU_patch.git
+          git clone https://github.com/WildKernels/kernel_patches.git
+          git clone https://github.com/ShirkNeko/SukiSU_patch.git
 
           cd kernel_platform        
           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ./common/
+          cp ../kernel_patches/next/scope_min_manual_hooks_v1.4.patch ./common/
           cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
           cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-          #lz4k
-          cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./common/include/linux
-          cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./common/lib
-          cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./common/crypto
-          cp -r ../SukiSU_patch/other/zram/lz4k_oplus ./common/lib/
+          
+          # lz4k
+          if [ "${{ inputs.enable_feature_y }}" = "true" ]; then
+            cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./common/include/linux
+            cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./common/lib
+            cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./common/crypto
+            cp -r ../SukiSU_patch/other/zram/lz4k_oplus ./common/lib/
+          fi
+          
           # Apply patches
           cd ./common
-
           patch -p1 < 50_add_susfs_in_gki-android15-6.6.patch || true
-          cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
-          patch -p1 -F 3 < syscall_hooks.patch
-          echo "完成"
+          
+          # 应用隐藏补丁
+          cp ../../kernel_patches/69_hide_stuff.patch ./
+          patch -p1 -F 3 < 69_hide_stuff.patch
+          patch -p1 --fuzz=3 < scope_min_manual_hooks_v1.4.patch
+          
+          echo "✅ SUSFS配置完成"
       
       - name: "📦 应用 HMBird GKI 补丁"
         run: |
@@ -210,25 +209,25 @@ jobs:
           fi
           cd ../../../
           git add -A
-          # git commit -m "Add HMBird GKI patch" || true
- 
+
       - name: "📦 应用 lz4kd 补丁"
         if: ${{inputs.enable_feature_y }}
         run: |
           cd kernel_workspace/kernel_platform/common
           cp ../../SukiSU_patch/other/zram/zram_patch/6.6/lz4kd.patch ./
           patch -p1 -F 3 < lz4kd.patch || true
+          cp ../../SukiSU_patch/other/zram/zram_patch/6.6/lz4k_oplus.patch ./
+          patch -p1 -F 3 < lz4k_oplus.patch || true
            
-      - name: "📦 添加susfs配置设置"
+      - name: "📦 配置内核选项"
         run: |
           cd kernel_workspace/kernel_platform
-          echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
-
-          # Add VFS configuration settings
-          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
           
-          # Add SUSFS configuration settings
+          # KernelSU Next 配置
+          echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_KPROBES_HOOK=n" >> ./common/arch/arm64/configs/gki_defconfig
+            
+          # SUSFS 配置
           echo "CONFIG_KSU_SUSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -244,21 +243,30 @@ jobs:
           echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          
-          # Add Baseband-guard configuration if enabled
+          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
+
+          # Baseband-guard 配置
           if [ "${{ inputs.enable_bbg }}" = "true" ]; then
             echo "⚡ 启用BBG防格机..."
             echo 'CONFIG_BBG=y' >> ./common/arch/arm64/configs/gki_defconfig
             echo 'CONFIG_LSM="landlock,lockdown,yama,loadpin,safesetid,selinux,smack,tomoyo,apparmor,bpf,baseband_guard"' >> ./common/arch/arm64/configs/gki_defconfig
           fi
           
-          echo "CONFIG_CRYPTO_LZ4HC=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CRYPTO_LZ4K=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CRYPTO_LZ4KD=y" >> ./common/arch/arm64/configs/gki_defconfig
+          # lz4kd 配置
+          if [ "${{ inputs.enable_feature_y }}" = "true" ]; then
+            echo "CONFIG_CRYPTO_LZ4KD=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_LZ4K_OPLUS=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_ZRAM_WRITEBACK=y" >> ./common/arch/arm64/configs/gki_defconfig
+          else
+            echo "CONFIG_CRYPTO_LZ4HC=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_LZ4K=y" >> ./common/arch/arm64/configs/gki_defconfig
+          fi
+          
+          # 其他配置
           echo "CONFIG_CRYPTO_842=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_LOCALVERSION_AUTO=n" >> ./common/arch/arm64/configs/gki_defconfig
 
-          # Add BBR
+          # BBR 配置
           echo "CONFIG_TCP_CONG_ADVANCED=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_TCP_CONG_BBR=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_NET_SCH_FQ=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -268,21 +276,12 @@ jobs:
           echo "CONFIG_TCP_CONG_HTCP=n" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_DEFAULT_TCP_CONG=bbr" >> ./common/arch/arm64/configs/gki_defconfig
           
-          #Remove check_defconfig
+          # 移除 check_defconfig
           sudo sed -i 's/check_defconfig//' ./common/build.config.gki
           cd common
-          git add -A && git commit -a -m "BUILD Kernel"
+          git add -A && git commit -a -m "BUILD Kernel with KernelSU Next"
       
-      - name: "📦 添加KPM配置设置"
-        if: ${{inputs.enable_feature_x }}
-        run: |
-          cd kernel_workspace/kernel_platform
-          echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
-         
-          # Remove check_defconfig
-          sudo sed -i 's/check_defconfig//' ./common/build.config.gki
-          cd common
-          git add -A && git commit -a -m "BUILD Kernel"
+
           
       - name: "📝 应用构建名称"
         run: |
@@ -308,15 +307,6 @@ jobs:
           cd kernel_workspace/kernel_platform/common
           make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=clang RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole LD=ld.lld  HOSTLD=ld.lld O=out KCFLAGS+=-O2 gki_defconfig all
           
-      - name: "🔨 应用Linux补丁"
-        run: |
-          cd kernel_workspace/kernel_platform/common/out/arch/arm64/boot
-          curl -LO https://github.com/SukiSU-Ultra/SukiSU_KernelPatch_patch/releases/download/0.12.0/patch_linux
-          chmod +x patch_linux
-          ./patch_linux
-          rm -f Image
-          mv oImage Image
-         
       - name: "📦 打包内核"
         run: |
           git clone https://github.com/ZXCLF/AnyKernel3.git --depth=1   
@@ -327,5 +317,5 @@ jobs:
       - name: "📤 上传 AnyKernel3"
         uses: actions/upload-artifact@v4
         with:
-          name: SukiSU_${{ env.KSUVER }}_oneplus_ace5_Ultra
+          name: KernelSU_Next_${{ env.KSUVER }}_oneplus_ace5_Ultra
           path: ./AnyKernel3/*
