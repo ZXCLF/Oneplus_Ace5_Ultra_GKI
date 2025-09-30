@@ -1,5 +1,10 @@
 # OnePlus Ace5 Ultra 内核构建项目
 
+
+**警告：系统版本为610的用户请勿使用本项目，根据[用户反馈](https://github.com/ZXCLF/Oneplus_Ace5_Ultra_GKI/issues/4)610系统刷入内核后会无限重启。**
+
+**并且目前一加官方尚未开源最新的610内核源码（[官方仓库](https://github.com/OnePlusOSS/android_kernel_oneplus_mt6991)），我们无法进行适配工作。**
+
 ## 项目概述
 
 这是一个基于 GitHub Actions 的自动化内核构建工作流，专为 OnePlus Ace5 Ultra 设备定制。项目支持多种 Root 管理器和性能优化功能，提供稳定可靠的内核构建解决方案。
